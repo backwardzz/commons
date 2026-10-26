@@ -1,0 +1,9 @@
+node_modules
+dist
+*.log
+.env*
+!.env.example
+**/supabase/.temp
+**/supabase/.branches
+# собирается из src/server/core.ts: npm run build:functions
+supabase/functions/ops/core.js

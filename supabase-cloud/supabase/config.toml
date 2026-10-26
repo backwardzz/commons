@@ -1,0 +1,17 @@
+# Настройки облачного проекта Commons (jpdfavftipqmjkzlutju), которые меняются отсюда:
+#   npx supabase config push --workdir supabase-cloud --project-ref jpdfavftipqmjkzlutju
+# Указаны только нужные свойства — остальное в облаке не трогается.
+project_id = "commons"
+
+[auth]
+site_url = "https://backwardzz.github.io/commons/"
+additional_redirect_urls = ["https://backwardzz.github.io/commons/", "http://localhost:5190"]
+
+[auth.email]
+otp_length = 6
+
+# Шаблон письма с кодом (supabase/templates/code.html) можно включить только со своим SMTP:
+# Authentication → Emails → SMTP Settings, затем раскомментировать:
+# [auth.email.template.magic_link]
+# subject = "Commons: код для входа · sign-in code"
+# content_path = "./supabase/templates/code.html"
