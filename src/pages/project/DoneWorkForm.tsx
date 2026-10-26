@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isMaintainer, projectContribs, submitDoneWork } from '../../data/ops';
 import { act, useAppState } from '../../data/store';
-import { SIZES, SKILLS, type Project, type Size, type Skill } from '../../data/types';
+import { SIZES, SKILLS, type Attachment, type Project, type Size, type Skill } from '../../data/types';
+import { FileDrop } from '../../components/files';
 import { IconCheck, IconFlag } from '../../components/icons';
 import { SelectMenu } from '../../components/pop';
 import { SideSection } from '../../components/Side';
@@ -22,6 +23,8 @@ export function DoneWorkForm({ p }: { p: Project }) {
   const [size, setSize] = useState<Size>('S');
   const [milestoneId, setMilestoneId] = useState<string | undefined>();
   const [links, setLinks] = useState('');
+  const [files, setFiles] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [areas, setAreas] = useState<string[]>([]);
   const [area, setArea] = useState('');
   const known = useMemo(() => [...new Set(projectContribs(s, p.id).flatMap((c) => c.areas))], [s, p.id]);
@@ -31,7 +34,7 @@ export function DoneWorkForm({ p }: { p: Project }) {
   const addArea = (a: string) => { const v = a.trim(); if (v && !areas.includes(v)) setAreas([...areas, v]); setArea(''); };
 
   const submit = () => {
-    const r = act<ReturnType<typeof submitDoneWork>>('submitDoneWork', [p.id, { title, summary, skills, size, milestoneId, links: links.split('\n'), areas: area.trim() ? [...areas, area] : areas }, me.id]);
+    const r = act<ReturnType<typeof submitDoneWork>>('submitDoneWork', [p.id, { title, summary, skills, size, milestoneId, links: links.split('\n'), files, areas: area.trim() ? [...areas, area] : areas }, me.id]);
     if (report(r, tr('Работа добавлена: задача #{x1} и вклад к ней ждут проверки', { x1: r.ok ? r.value.task.number : '' }))) navigate(`/p/${p.slug}/pulls/${r.value.contribution.number}`);
   };
 
@@ -58,12 +61,15 @@ export function DoneWorkForm({ p }: { p: Project }) {
                 {tab === 'write'
                   ? <textarea rows={8} value={summary} onChange={(e) => setSummary(e.target.value)} aria-label={tr('Описание')} placeholder={tr('Что сделано, зачем это проекту и как проверить результат')} />
                   : <div className="composer-preview">{summary.trim() ? <Markdown text={summary} /> : <p className="muted">{tr('Нечего показать.')}</p>}</div>}
+                <div className="field">
+                  <span className="field-label">{tr('Файлы')}</span>
+                  <FileDrop value={files} onChange={setFiles} onBusy={setUploading} />
+                </div>
                 <label className="field">
-                  <span className="field-label">{tr('Файлы и ссылки')}</span>
-                  <textarea rows={3} value={links} onChange={(e) => setLinks(e.target.value)} placeholder={tr('По одной на строку: https://… или icons.zip')} />
-                  <span className="field-hint">{tr('В демо файлы не загружаются — дайте ссылку на облако, GitHub или Figma.')}</span>
+                  <span className="field-label">{tr('Ссылки')}</span>
+                  <textarea rows={2} value={links} onChange={(e) => setLinks(e.target.value)} placeholder={tr('По одной на строку: GitHub, Figma, облако с большими файлами')} />
                 </label>
-                <div className="composer-foot"><span /><button type="button" className="btn btn-primary" onClick={submit}><IconCheck />{tr('Добавить работу')}</button></div>
+                <div className="composer-foot"><span /><button type="button" className="btn btn-primary" onClick={submit} disabled={uploading}><IconCheck />{tr('Добавить работу')}</button></div>
               </div>
             </div>
           </div>

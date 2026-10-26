@@ -4,7 +4,8 @@ import {
   approvals, canDecide, contribByNumber, decideContribution, getTask, getUser, isMaintainer, reviewContribution, updateContribution,
 } from '../../data/ops';
 import { act, getState, useAppState } from '../../data/store';
-import { ACCEPT_RULES, type Contribution, type Project, type Verdict } from '../../data/types';
+import { ACCEPT_RULES, type Attachment, type Contribution, type Project, type Verdict } from '../../data/types';
+import { FileDrop, FileGallery } from '../../components/files';
 import { EngineBadge } from '../../components/AiPanel';
 import {
   IconAlert, IconCheck, IconComment, IconDot, IconFile, IconIssue, IconLink, IconPencil, IconPull, IconPullClosed, IconPullMerged, IconSpark, IconX,
@@ -107,6 +108,8 @@ export function PullPage({ p, n }: { p: Project; n: number }) {
   const [check, setCheck] = useState<Check | null>(null);
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState<{ summary: string; links: string } | null>(null);
+  const [editFiles, setEditFiles] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   // встроенную проверку считаем сразу — она мгновенная; Claude запускается по кнопке
   const auto = useMemo(() => (c && s.ai.mode !== 'claude' ? { ...reviewContrib(s, c), engine: 'local' as const } : null), [s, c]);
@@ -122,6 +125,8 @@ export function PullPage({ p, n }: { p: Project; n: number }) {
   const lastVerdict = (id: string) => [...c.reviews].reverse().find((r) => r.authorId === id)?.verdict;
   const ms = task ? p.milestones.find((m) => m.id === task.milestoneId) : undefined;
   const files = c.links;
+  const uploaded = c.files ?? [];
+  const startEdit = () => { setEdit({ summary: c.summary, links: c.links.join('\n') }); setEditFiles(uploaded); };
 
   const run = async () => { setBusy(true); setCheck(await askReview(getState(), c)); setBusy(false); };
   const review = (v: Verdict, text: string, clear: () => void) => {
@@ -130,7 +135,7 @@ export function PullPage({ p, n }: { p: Project; n: number }) {
   };
   const saveEdit = () => {
     if (!edit) return;
-    if (report(act<ReturnType<typeof updateContribution>>('updateContribution', [c.id, { summary: edit.summary, links: edit.links.split('\n').map((l) => l.trim()).filter(Boolean) }, me!.id]), tr('Вклад обновлён и снова ждёт проверки'))) setEdit(null);
+    if (report(act<ReturnType<typeof updateContribution>>('updateContribution', [c.id, { summary: edit.summary, links: edit.links.split('\n').map((l) => l.trim()).filter(Boolean), files: editFiles }, me!.id]), tr('Вклад обновлён и снова ждёт проверки'))) setEdit(null);
   };
 
   type Item = { at: number; key: string; node: ReactNode };
@@ -154,7 +159,7 @@ export function PullPage({ p, n }: { p: Project; n: number }) {
 
   const tabs = [
     { id: 'talk', name: tr('Обсуждение'), icon: <IconComment />, n: c.reviews.length },
-    { id: 'files', name: tr('Файлы'), icon: <IconFile />, n: files.length },
+    { id: 'files', name: tr('Файлы'), icon: <IconFile />, n: files.length + uploaded.length },
     { id: 'checks', name: tr('Проверки'), icon: <IconSpark />, n: shown ? shown.findings.filter((f) => f.level !== 'ok').length : undefined },
   ];
 
@@ -163,7 +168,7 @@ export function PullPage({ p, n }: { p: Project; n: number }) {
       <header className="ihead">
         <div className="ititle-row">
           <h1 className="ititle">{c.title} <span className="inum">#{c.number}</span></h1>
-          {own && !closed && !edit && <button type="button" className="btn btn-sm" onClick={() => setEdit({ summary: c.summary, links: c.links.join('\n') })}>{c.status === 'changes_requested' ? tr('Внести правки') : tr('Править')}</button>}
+          {own && !closed && !edit && <button type="button" className="btn btn-sm" onClick={startEdit}>{c.status === 'changes_requested' ? tr('Внести правки') : tr('Править')}</button>}
         </div>
         <div className="imeta">
           <ContribPill c={c} />
@@ -185,14 +190,15 @@ export function PullPage({ p, n }: { p: Project; n: number }) {
         <div className="timeline">
           {tab === 'files' && (
             <div className="box">
-              <div className="box-head"><span className="box-title">{tn(files.length, '{n} файл или ссылка|{n} файла или ссылки|{n} файлов и ссылок')}</span></div>
+              <div className="box-head"><span className="box-title">{tn(files.length + uploaded.length, '{n} файл или ссылка|{n} файла или ссылки|{n} файлов и ссылок')}</span></div>
+              <FileGallery files={uploaded} />
               {files.map((f) => (
                 <div key={f} className="file-row">
                   {isUrl(f) ? <IconLink className="file-ico" /> : <IconFile className="file-ico" />}
                   {isUrl(f) ? <a href={f} target="_blank" rel="noreferrer noopener" className="file-name">{f.replace(/^https?:\/\//, '')}</a> : <span className="file-name">{f}</span>}
                 </div>
               ))}
-              {!files.length && <p className="box-empty">{tr('Автор не приложил файлов. В демо файлы передаются ссылками на облако, GitHub или Figma.')}</p>}
+              {!files.length && !uploaded.length && <p className="box-empty">{tr('Автор не приложил файлов.')}</p>}
             </div>
           )}
 
@@ -205,8 +211,9 @@ export function PullPage({ p, n }: { p: Project; n: number }) {
                   <span className="tl-avatar"><Avatar user={getUser(s, c.authorId)} size={36} /></span>
                   <div className="cbox"><div className="composer-body stack">
                     <textarea rows={8} value={edit.summary} onChange={(e) => setEdit({ ...edit, summary: e.target.value })} aria-label={tr('Описание вклада')} />
-                    <label className="field"><span className="field-label">{tr('Файлы и ссылки')}</span><textarea rows={3} value={edit.links} onChange={(e) => setEdit({ ...edit, links: e.target.value })} /></label>
-                    <div className="row-end"><button type="button" className="btn btn-sm btn-ghost" onClick={() => setEdit(null)}>{tr('Отмена')}</button><button type="button" className="btn btn-sm btn-primary" onClick={saveEdit}>{tr('Сохранить и отправить снова')}</button></div>
+                    <div className="field"><span className="field-label">{tr('Файлы')}</span><FileDrop value={editFiles} onChange={setEditFiles} onBusy={setUploading} keep={uploaded.map((a) => a.url)} /></div>
+                    <label className="field"><span className="field-label">{tr('Ссылки')}</span><textarea rows={2} value={edit.links} onChange={(e) => setEdit({ ...edit, links: e.target.value })} /></label>
+                    <div className="row-end"><button type="button" className="btn btn-sm btn-ghost" onClick={() => setEdit(null)}>{tr('Отмена')}</button><button type="button" className="btn btn-sm btn-primary" onClick={saveEdit} disabled={uploading}>{tr('Сохранить и отправить снова')}</button></div>
                   </div></div>
                 </div>
               ) : <CommentBox p={p} authorId={c.authorId} at={c.createdAt} body={c.summary} isAuthor />}

@@ -10,8 +10,24 @@ additional_redirect_urls = ["https://backwardzz.github.io/commons/", "http://loc
 [auth.email]
 otp_length = 6
 
-# Шаблон письма с кодом (supabase/templates/code.html) можно включить только со своим SMTP:
-# Authentication → Emails → SMTP Settings, затем раскомментировать:
+# Своя почта для писем входа. Без неё Supabase шлёт письма только участникам организации,
+# то есть посторонний человек войти по почте не сможет. Вариант без своего домена — Gmail:
+#   1. В аккаунте Google включить двухэтапную проверку и создать «пароль приложения»
+#      (myaccount.google.com/apppasswords).
+#   2. Дописать в D:\artel\.env.cloud строки SMTP_USER=<адрес gmail> и SMTP_PASS=<пароль приложения>.
+#   3. Раскомментировать блок ниже и шаблон письма, затем (из D:\artel):
+#      set -a; . ./.env.cloud; set +a; npx supabase config push --workdir supabase-cloud --project-ref jpdfavftipqmjkzlutju
+# Gmail отправляет до ~500 писем в день. Со своим доменом лучше Resend: host smtp.resend.com, user resend.
+# [auth.email.smtp]
+# enabled = true
+# host = "smtp.gmail.com"
+# port = 587
+# user = "env(SMTP_USER)"
+# pass = "env(SMTP_PASS)"
+# admin_email = "env(SMTP_USER)"
+# sender_name = "Commons"
+
+# Шаблон письма с кодом (supabase/templates/code.html) включается только вместе со своим SMTP:
 # [auth.email.template.magic_link]
 # subject = "Commons: код для входа · sign-in code"
 # content_path = "./supabase/templates/code.html"

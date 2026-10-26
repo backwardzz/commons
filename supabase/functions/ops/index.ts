@@ -9,6 +9,8 @@ const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // почты команды платформы: при создании профиля они становятся сопровождающими проекта Commons
 const ADMINS = (Deno.env.get('COMMONS_ADMINS') ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 const ADMIN_PROJECT = Deno.env.get('COMMONS_PROJECT_ID') ?? 'p-commons';
+// адрес публичных файлов, как его видит браузер (локально он отличается от внутреннего SUPABASE_URL)
+const FILES_BASE = Deno.env.get('COMMONS_FILES_BASE') ?? `${URL}/storage/v1/object/public/files/`;
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -44,7 +46,7 @@ Deno.serve(async (req) => {
   try {
     await useLang(body.lang);
     const state = stateFromRows(await loadRows());
-    const res = execute(state, body, user.id, { isAdmin: ADMINS.includes((user.email ?? '').toLowerCase()), adminProjectId: ADMIN_PROJECT });
+    const res = execute(state, body, user.id, { isAdmin: ADMINS.includes((user.email ?? '').toLowerCase()), adminProjectId: ADMIN_PROJECT, filesBase: FILES_BASE });
     if (!res.ok) return json({ error: res.error }, res.status);
     if (res.upserts.length || res.deletes.length) {
       const { error } = await db.rpc('entities_apply', { upserts: res.upserts, deletes: res.deletes });

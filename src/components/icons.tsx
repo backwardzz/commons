@@ -52,3 +52,5 @@ export const IconChart = (p: P) => <Svg {...p}><path d="M2.5 13.5h11" /><path d=
 export const IconMail = (p: P) => <Svg {...p}><rect x="2" y="3.5" width="12" height="9" rx="1.4" /><path d="m2.6 4.4 5.4 4.1 5.4-4.1" /></Svg>;
 export const IconShare = (p: P) => <Svg {...p}><path d="M8 10V2.2M5.2 4.8 8 2l2.8 2.8" /><path d="M4.5 7H3.8c-.7 0-1.3.6-1.3 1.3v4.4c0 .7.6 1.3 1.3 1.3h8.4c.7 0 1.3-.6 1.3-1.3V8.3c0-.7-.6-1.3-1.3-1.3h-.7" /></Svg>;
 export const IconTranslate = (p: P) => <Svg {...p}><path d="M2 3.5h6.5M5.2 2v1.5M3.3 3.5c.4 2 1.8 3.7 3.7 4.6M7.2 3.5C6.8 5.6 5.4 7.4 3 8.6" /><path d="m8.5 14 2.7-6.5L14 14M9.4 12h3.6" /></Svg>;
+export const IconClip = (p: P) => <Svg {...p}><path d="m13.2 7.6-5.3 5.3a3.2 3.2 0 0 1-4.5-4.5l5.6-5.6a2.1 2.1 0 0 1 3 3L6.4 11.4a1 1 0 0 1-1.5-1.5l5-5" /></Svg>;
+export const IconDownload = (p: P) => <Svg {...p}><path d="M8 2.2v8" /><path d="m4.8 7.2 3.2 3.2 3.2-3.2" /><path d="M2.6 11.5v1.2c0 .6.5 1.1 1.1 1.1h8.6c.6 0 1.1-.5 1.1-1.1v-1.2" /></Svg>;

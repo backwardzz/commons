@@ -66,6 +66,24 @@ check(!!direct.error, 'напрямую в базу записать нельз�
 const noAuth = await op('not-a-token', 'toggleFollow', ['p-commons']);
 check(noAuth.status === 401, 'без входа действия не выполняются');
 
+// файлы во вкладах: загрузка только в свою папку, сервер принимает только такие ссылки
+const projectBefore = (await admin.from('entities').select('data').eq('kind', 'project').eq('id', 'p-commons').single()).data;
+const png = new Blob([Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10])], { type: 'image/png' });
+const own = await b.db.storage.from('files').upload(`${b.id}/smoke/icon.png`, png, { contentType: 'image/png' });
+check(!own.error, `Б загрузил файл в свою папку${own.error ? ` (${own.error.message})` : ''}`);
+const alien = await b.db.storage.from('files').upload(`${a.id}/smoke/icon.png`, png, { contentType: 'image/png' });
+check(!!alien.error, 'Б не может загрузить файл в папку А');
+const fileUrl = b.db.storage.from('files').getPublicUrl(`${b.id}/smoke/icon.png`).data.publicUrl;
+check((await fetch(fileUrl)).ok, 'файл открывается по публичной ссылке');
+const contrib = (files: unknown[]) => op(b.token, 'submitContribution', [{ projectId: 'p-commons', title: 'Смоук: вклад с файлом', summary: 'Проверка загрузки файлов.', kind: 'design', links: [], files, areas: [] }]);
+const withFile = await contrib([{ name: 'иконка.png', size: 8, type: 'image/png', url: fileUrl }]);
+check(withFile.status === 200, `Б отправил вклад со своим файлом${withFile.body.error ? ` (${withFile.body.error})` : ''}`);
+const stolen = await contrib([{ name: 'чужое.png', size: 8, type: 'image/png', url: fileUrl.replace(b.id, a.id) }]);
+check(stolen.status === 422, 'вклад со ссылкой на чужую папку не принимается');
+await admin.storage.from('files').remove([`${b.id}/smoke/icon.png`]);
+await admin.from('entities').delete().eq('kind', 'contribution').eq('data->>authorId', b.id);
+if (projectBefore) await admin.rpc('entities_apply', { upserts: [{ kind: 'project', id: 'p-commons', project_id: 'p-commons', visible_to: null, data: projectBefore.data }], deletes: [] });
+
 // уборка: тестовые пользователи и их следы
 for (const u of [a, b, c]) {
   await admin.from('entities').delete().contains('visible_to', [u.id]);

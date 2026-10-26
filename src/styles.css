@@ -1000,3 +1000,20 @@ a.h-text:hover { color: var(--sk-code); text-decoration: underline; }
 .google-or span { position: relative; background: var(--surface); padding: 0 10px; }
 .google-linked { margin: 0 0 4px; }
 img.avatar-img { border-radius: 50%; object-fit: cover; display: inline-block; flex: none; }
+
+/* приложенные файлы */
+.file-row.file-row-dl { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.file-tile { display: block; aspect-ratio: 4 / 3; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); }
+.file-tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s ease; }
+.file-tile:hover img { transform: scale(1.03); }
+.filedrop { display: grid; gap: 8px; padding: 10px; border: 1px dashed var(--line); border-radius: 8px; transition: border-color 0.15s ease, background-color 0.15s ease; }
+.filedrop.is-over { border-color: var(--focus); background: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+.filedrop-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.filedrop-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.filechip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 4px 4px 4px 8px; border-radius: 6px; background: var(--surface-2); font-size: 14px; }
+.filechip-thumb { width: 28px; height: 28px; border-radius: 4px; object-fit: cover; display: block; }
+.filechip.is-loading { grid-template-columns: auto minmax(0, 1fr) auto; padding-right: 10px; }
+.filechip-spin { width: 14px; height: 14px; margin: 0 7px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--ink-2); animation: filespin 0.8s linear infinite; }
+@keyframes filespin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .filechip-spin { animation-duration: 2.4s; } .file-tile img { transition: none; } }

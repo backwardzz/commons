@@ -5,7 +5,7 @@ import { ID_RE, replay } from '../data/runtime';
 import { REGISTRY, prepareArgs, runOp } from '../data/registry';
 import { diffRows, fromRows, takenIds, toRows, type Row } from '../data/entities';
 import type { State } from '../data/types';
-import { LANGS, loadLang, setLang, type Lang } from '../i18n';
+import { LANGS, loadLang, setLang, tr, type Lang } from '../i18n';
 
 export interface OpRequest {
   op: string;
@@ -38,6 +38,22 @@ export interface ExecOptions {
   /** Проект, в котором вошедший становится сопровождающим при создании профиля (для команды платформы). */
   adminProjectId?: string;
   isAdmin?: boolean;
+  /**
+   * Адрес публичных файлов хранилища (…/storage/v1/object/public/files/). Новые файлы во вкладе
+   * должны лежать в папке вошедшего пользователя — чужие ссылки и файлы внутри запроса не принимаются.
+   */
+  filesBase?: string;
+}
+
+/** Новые (которых не было в прежней версии) файлы вкладов в изменениях. */
+function newFileUrls(state: State, upserts: Row[]): string[] {
+  const out: string[] = [];
+  for (const r of upserts) {
+    if (r.kind !== 'contribution') continue;
+    const was = new Set((state.contributions.find((c) => c.id === r.id)?.files ?? []).map((f) => f.url));
+    for (const f of (r.data as { files?: { url: string }[] }).files ?? []) if (!was.has(f.url)) out.push(f.url);
+  }
+  return out;
 }
 
 export function execute(state: State, req: OpRequest, actorId: string, opt: ExecOptions = {}): OpResult {
@@ -72,5 +88,9 @@ export function execute(state: State, req: OpRequest, actorId: string, opt: Exec
   }
 
   const { upserts, deletes } = diffRows(toRows(state), toRows(next));
+  const own = opt.filesBase ? opt.filesBase + actorId + '/' : null;
+  for (const url of newFileUrls(state, upserts)) {
+    if (url.startsWith('data:') || (own && (!url.startsWith(own) || url.includes('..')))) return { ok: false, status: 422, error: tr('Файлы прикладываются только загрузкой через Commons') };
+  }
   return { ok: true, upserts, deletes };
 }

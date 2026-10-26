@@ -56,8 +56,9 @@ npm run smoke:db          # проверка вдвоём: идеи, личны�
 2. Накатить схему: `npx supabase db push`.
 3. Задать секрет команды платформы и выложить функцию: `npx supabase secrets set COMMONS_ADMINS=почта@пример.com`, затем `npm run deploy:functions`.
 4. Положить стартовый проект: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npm run seed:db`.
-5. Настройки входа облака — в `supabase-cloud/supabase/config.toml` (`npx supabase config push --workdir supabase-cloud --project-ref jpdfavftipqmjkzlutju`). Письмо с кодом вместо ссылки и письма всем, а не только участникам организации Supabase, требуют своего SMTP (Authentication → Emails → SMTP Settings). До этого сайт принимает и ссылку из стандартного письма.
-6. Для GitHub Pages: Settings → Secrets and variables → Actions → Variables → `SUPABASE_URL` и `SUPABASE_ANON_KEY` (publishable-ключ).
+5. Хранилище файлов создаётся миграцией `…_files.sql`. Если `db push` не может подключиться к базе, миграцию можно выполнить через API: `npx supabase db query --linked -f <файл>`.
+6. Настройки входа облака — в `supabase-cloud/supabase/config.toml` (`npx supabase config push --workdir supabase-cloud --project-ref jpdfavftipqmjkzlutju`). Письмо с кодом вместо ссылки и письма всем, а не только участникам организации Supabase, требуют своего SMTP (Authentication → Emails → SMTP Settings). До этого сайт принимает и ссылку из стандартного письма.
+7. Для GitHub Pages: Settings → Secrets and variables → Actions → Variables → `SUPABASE_URL` и `SUPABASE_ANON_KEY` (publishable-ключ).
 
 ### Вход через Google
 
@@ -79,6 +80,6 @@ npm run smoke:db          # проверка вдвоём: идеи, личны�
 
 ## Ограничения
 
-- Файлы во вкладах — ссылки, загрузки нет.
+- Файлы во вкладах: с общей базой — в корзине `files` хранилища Supabase (до 20 МБ, до 10 файлов, только в папку автора; незнакомые типы сохраняются как `application/octet-stream` и скачиваются), в демо — внутри браузера, до 1 МБ. Файлы больше — ссылкой. Если автор убрал файл из уже отправленного вклада, файл остаётся в хранилище.
 - Серверная функция читает всю базу на каждое действие — для начала этого хватит, при росте нужно читать только данные проекта.
-- Следующие шаги: загрузка файлов, уведомления, двусторонние интеграции с GitHub и Figma.
+- Следующие шаги: уведомления, двусторонние интеграции с GitHub и Figma.

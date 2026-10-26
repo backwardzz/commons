@@ -1,7 +1,7 @@
 // Чистые операции над состоянием: (state, …) => новое state.
 // Права проверяются здесь, чтобы интерфейс и тесты опирались на одни и те же правила.
 import type {
-  Activity, Contribution, Msg, ContributionStatus, Doc, Milestone, Priority, Project,
+  Activity, Attachment, Contribution, Msg, ContributionStatus, Doc, Milestone, Priority, Project,
   ProjectLink, Release, Size, Skill, State, Task, TaskStatus, TaskType, Thread, ThreadKind, User, Verdict,
   SocialLink,
 } from './types';
@@ -441,6 +441,29 @@ export function moveTask(s: State, taskId: string, status: TaskStatus, actorId: 
 
 // ——— вклады ———
 
+export const MAX_FILES = 10;
+/** Самый большой файл: с общей базой — в хранилище, в демо — внутри браузера (места там мало). */
+export const FILE_LIMIT = 20 * 1024 * 1024;
+export const FILE_LIMIT_DEMO = 1024 * 1024;
+
+/** Проверить список приложенных файлов: только описание файла, сам файл уже загружен. */
+export function cleanFiles(files: unknown): Attachment[] {
+  if (files === undefined || files === null) return [];
+  if (!Array.isArray(files)) throw new OpError(tr('Не удалось прочитать список файлов'));
+  if (files.length > MAX_FILES) throw new OpError(tr('Можно приложить не больше {n} файлов', { n: MAX_FILES }));
+  return files.map((x): Attachment => {
+    const a = (x ?? {}) as Partial<Attachment>;
+    const name = typeof a.name === 'string' ? a.name.trim().slice(0, 200) : '';
+    const url = typeof a.url === 'string' ? a.url : '';
+    const size = typeof a.size === 'number' && Number.isFinite(a.size) && a.size >= 0 ? Math.round(a.size) : -1;
+    const type = typeof a.type === 'string' ? a.type.slice(0, 120) : '';
+    const dataUrl = url.startsWith('data:');
+    if (!name || size < 0 || !(dataUrl || /^https?:\/\//.test(url))) throw new OpError(tr('Не удалось прочитать список файлов'));
+    if (size > FILE_LIMIT || (dataUrl && url.length > FILE_LIMIT_DEMO * 1.4)) throw new OpError(tr('Файл «{name}» слишком большой', { name }));
+    return { name, size, type, url };
+  });
+}
+
 export interface NewContribution {
   projectId: string;
   taskId?: string;
@@ -448,6 +471,7 @@ export interface NewContribution {
   summary: string;
   kind: Skill;
   links: string[];
+  files?: Attachment[];
   areas: string[];
 }
 
@@ -462,11 +486,12 @@ export function submitContribution(s: State, input: NewContribution, actorId: st
   if (task && task.projectId !== input.projectId) throw new OpError(tr('Задача из другого проекта'));
   if (task && (task.status === 'done' || task.status === 'declined')) throw new OpError(tr('Эта задача уже закрыта'));
   if (task && task.status === 'proposed') throw new OpError(tr('Задачу ещё не открыли сопровождающие'));
+  const files = cleanFiles(input.files);
   const now = clock();
   const [s1, number] = takeNumber(s, input.projectId);
   const c: Contribution = {
     id: uid('c'), number, projectId: input.projectId, taskId: input.taskId, authorId: actorId, title, summary: input.summary.trim(),
-    kind: input.kind, links: input.links.map((l) => l.trim()).filter(Boolean), areas: input.areas.map((a) => a.trim()).filter(Boolean),
+    kind: input.kind, links: input.links.map((l) => l.trim()).filter(Boolean), ...(files.length ? { files } : {}), areas: input.areas.map((a) => a.trim()).filter(Boolean),
     status: 'open', reviews: [], createdAt: now, updatedAt: now,
   };
   let next: State = touch({ ...s1, contributions: [c, ...s1.contributions] }, input.projectId);
@@ -484,6 +509,7 @@ export interface DoneWork {
   size: Size;
   milestoneId?: string;
   links: string[];
+  files?: Attachment[];
   areas: string[];
 }
 
@@ -498,6 +524,7 @@ export function submitDoneWork(s: State, projectId: string, input: DoneWork, act
   if (title.length < 4) throw new OpError(tr('Назовите работу — хотя бы несколько слов'));
   if (!input.skills.length) throw new OpError(tr('Отметьте, к какому ремеслу относится работа'));
   if (input.summary.trim().length < 10) throw new OpError(tr('Опишите результат хотя бы парой предложений — так его быстрее проверят'));
+  cleanFiles(input.files);
   const now = clock();
   const [s1, number] = takeNumber(s, projectId);
   const task: Task = {
@@ -507,7 +534,7 @@ export function submitDoneWork(s: State, projectId: string, input: DoneWork, act
   };
   let next: State = { ...s1, tasks: [...s1.tasks, task] };
   next = log(next, { projectId, actorId, type: 'task', verb: 'created', msg: m('добавил сделанную работу #{number} «{title}»', { number, title }), ref: { kind: 'task', id: task.id } });
-  const r = submitContribution(next, { projectId, taskId: task.id, title, summary: input.summary, kind: input.skills[0], links: input.links, areas: input.areas }, actorId);
+  const r = submitContribution(next, { projectId, taskId: task.id, title, summary: input.summary, kind: input.skills[0], links: input.links, files: input.files, areas: input.areas }, actorId);
   return { state: r.state, task: getTask(r.state, task.id)!, contribution: r.contribution };
 }
 
@@ -528,11 +555,17 @@ export function reviewContribution(s: State, contribId: string, verdict: Verdict
   return next;
 }
 
-export function updateContribution(s: State, contribId: string, patch: Partial<Pick<Contribution, 'summary' | 'links' | 'title' | 'areas'>>, actorId: string): State {
+export function updateContribution(s: State, contribId: string, patch: Partial<Pick<Contribution, 'summary' | 'links' | 'files' | 'title' | 'areas'>>, actorId: string): State {
   const c = need(s.contributions.find((x) => x.id === contribId), tr('Вклад не найден'));
   if (c.authorId !== actorId) throw new OpError(tr('Обновить вклад может только его автор'));
   if (c.status === 'accepted' || c.status === 'rejected') throw new OpError(tr('Решение по вкладу уже принято'));
-  let next = patchContrib(s, contribId, { ...patch, status: 'open' });
+  const clean: Partial<Contribution> = {};
+  if (patch.summary !== undefined) clean.summary = String(patch.summary);
+  if (patch.title !== undefined) clean.title = String(patch.title);
+  if (Array.isArray(patch.links)) clean.links = patch.links.map((l) => String(l).trim()).filter(Boolean);
+  if (Array.isArray(patch.areas)) clean.areas = patch.areas.map((a) => String(a).trim()).filter(Boolean);
+  if (patch.files !== undefined) clean.files = cleanFiles(patch.files);
+  let next = patchContrib(s, contribId, { ...clean, status: 'open' });
   next = log(next, { projectId: c.projectId, actorId, type: 'contribution', verb: 'updated', msg: m('обновил вклад #{number}', { number: c.number }), ref: { kind: 'contribution', id: c.id } });
   return next;
 }

@@ -293,6 +293,13 @@ export interface Review {
   createdAt: number;
 }
 
+export interface Attachment {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+}
+
 export interface Contribution {
   id: string;
   number: number;
@@ -303,6 +310,7 @@ export interface Contribution {
   summary: string; // markdown
   kind: Skill;
   links: string[];
+  files?: Attachment[]; // загруженные файлы (в демо — внутри браузера, с базой — в хранилище)
   areas: string[]; // какие части проекта затрагивает — для поиска конфликтов
   status: ContributionStatus;
   reviews: Review[];

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { projectContribs, projectTasks, submitContribution, taskByNumber } from '../../data/ops';
 import { act, useAppState } from '../../data/store';
-import { SKILLS, type Project, type Skill } from '../../data/types';
+import { SKILLS, type Attachment, type Project, type Skill } from '../../data/types';
+import { FileDrop } from '../../components/files';
 import { IconIssue, IconPull } from '../../components/icons';
 import { Select, SelectMenu } from '../../components/pop';
 import { SideSection } from '../../components/Side';
@@ -24,6 +25,8 @@ export function PullForm({ p }: { p: Project }) {
   const [tab, setTab] = useState<'write' | 'preview'>('write');
   const [kind, setKind] = useState<Skill>((params.get('kind') as Skill) ?? pre?.skills.find((x) => me?.skills.includes(x)) ?? pre?.skills[0] ?? me?.skills[0] ?? 'code');
   const [links, setLinks] = useState('');
+  const [files, setFiles] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [areas, setAreas] = useState<string[]>([]);
   const [area, setArea] = useState('');
   const known = useMemo(() => [...new Set(projectContribs(s, p.id).flatMap((c) => c.areas))], [s, p.id]);
@@ -41,7 +44,7 @@ export function PullForm({ p }: { p: Project }) {
   const addArea = (a: string) => { const v = a.trim(); if (v && !areas.includes(v)) setAreas([...areas, v]); setArea(''); };
 
   const submit = () => {
-    const r = act<ReturnType<typeof submitContribution>>('submitContribution', [{ projectId: p.id, taskId: task?.id, title, summary, kind, links: links.split('\n'), areas: area.trim() ? [...areas, area] : areas }, me.id]);
+    const r = act<ReturnType<typeof submitContribution>>('submitContribution', [{ projectId: p.id, taskId: task?.id, title, summary, kind, links: links.split('\n'), files, areas: area.trim() ? [...areas, area] : areas }, me.id]);
     if (report(r, tr('Вклад отправлен на проверку'))) navigate(`/p/${p.slug}/pulls/${r.value.contribution.number}`);
   };
 
@@ -79,12 +82,15 @@ export function PullForm({ p }: { p: Project }) {
                 {tab === 'write'
                   ? <textarea rows={8} value={summary} onChange={(e) => setSummary(e.target.value)} aria-label={tr('Описание')} placeholder={tr('Что сделано, как проверить, что осталось. Напишите, как выполнены критерии приёмки.')} />
                   : <div className="composer-preview">{summary.trim() ? <Markdown text={summary} /> : <p className="muted">{tr('Нечего показать.')}</p>}</div>}
+                <div className="field">
+                  <span className="field-label">{tr('Файлы')}</span>
+                  <FileDrop value={files} onChange={setFiles} onBusy={setUploading} />
+                </div>
                 <label className="field">
-                  <span className="field-label">{tr('Файлы и ссылки')}</span>
-                  <textarea rows={3} value={links} onChange={(e) => setLinks(e.target.value)} placeholder={tr('По одной на строку: https://… или model_v2.glb')} />
-                  <span className="field-hint">{tr('В демо файлы не загружаются — дайте ссылку на облако, GitHub или Figma.')}</span>
+                  <span className="field-label">{tr('Ссылки')}</span>
+                  <textarea rows={2} value={links} onChange={(e) => setLinks(e.target.value)} placeholder={tr('По одной на строку: GitHub, Figma, облако с большими файлами')} />
                 </label>
-                <div className="composer-foot"><span /><button type="button" className="btn btn-primary" onClick={submit}><IconPull />{tr('Предложить вклад')}</button></div>
+                <div className="composer-foot"><span /><button type="button" className="btn btn-primary" onClick={submit} disabled={uploading}><IconPull />{tr('Предложить вклад')}</button></div>
               </div>
             </div>
           </div>
